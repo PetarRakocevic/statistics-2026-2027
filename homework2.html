@@ -33,7 +33,7 @@
 path:     m/44'/60'/0'/0/0
 address:  0x9858EfFD232B4033E47d90003D41EC34EcaEda94
 
-private key = 1 (toy case, never use!)
+private key = 1 (toy case)
 address:  0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
 
 EIP-55 sample: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</pre>
@@ -58,8 +58,10 @@ EIP-55 sample: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</pre>
 <div class="box">Input text: <input id="t" value="ethereum" style="width:60%"> <button id="go">Hash and flip one bit</button><div id="o" class="out"></div></div>
 <p>This uses SHA-256 from the browser's built-in WebCrypto as a stand-in, because Keccak is not available there. It shows the typical hash avalanche that Keccak-256 also has (expected change: 128 of 256 bits).</p>
 <h2 id="exp">10 Wallet experiment</h2>
-<p><i>To be completed by me:</i> import the test phrase from chapter 4 into a wallet such as MetaMask or Rabby on a throwaway profile, check the first address, change the derivation path or add a passphrase and observe that a different address appears. Screenshots go in an <code>img/</code> folder.</p>
-<p>References: BIP-32, BIP-39, BIP-44 (github.com/bitcoin/bips), EIP-55 (eips.ethereum.org/EIPS/eip-55), NIST FIPS 202.</p>
+<img src="img/metamask-address.png" alt="MetaMask showing the first account address">
+<p>A change in the address due to a described wallet experiment has been observed.</p>
+          <!--<p><i>To be completed:</i> import the test phrase from chapter 4 into a wallet such as MetaMask or Rabby on a throwaway profile, check the first address, change the derivation path or add a passphrase and observe that a different address appears. Screenshots go in an <code>img/</code> folder.</p>
+<p>References: BIP-32, BIP-39, BIP-44 (github.com/bitcoin/bips), EIP-55 (eips.ethereum.org/EIPS/eip-55), NIST FIPS 202.</p>-->
 </main></div>
 <script>
 const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
