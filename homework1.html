@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HMWK 1 | Petar Rakočević</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><span>stats-2026-27 / hmwk1</span><span><a href="index.html">Home</a><a href="homework2.html">HMWK 2</a></span></header>
+<div class="wrap"><aside><b>Chapters</b><a href="#theory">1 Theory</a><a href="#code">2 Implementation</a><a href="#demo">3 Demo and animation</a><a href="#real">4 Real secp256k1</a><a href="#stats">5 Statistics</a><a href="#disc">6 Discussion</a></aside><main>
+<h1>HMWK 1: Private key to public key</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
+<h2 id="theory">1 Theory</h2>
+<p>An elliptic curve over a prime field F<sub>p</sub> is the set of points (x,y) satisfying y² = x³ + ax + b (mod p), plus a point at infinity O that acts as the identity. Ethereum uses secp256k1, where a = 0, b = 7 and p = 2<sup>256</sup> − 2<sup>32</sup> − 977. Our toy curve keeps the same shape, <code>y² = x³ + 7 (mod 17)</code>, with base point G = (1,5). Check: 1³+7 = 8 and 5² = 25 ≡ 8 (mod 17).</p>
+<p>Point addition uses the chord-and-tangent rule: for P≠Q the slope is λ = (y₂−y₁)/(x₂−x₁), for P=Q it is λ = 3x²/2y. Then x₃ = λ²−x₁−x₂ and y₃ = λ(x₁−x₃)−y₁, all mod p, where division means multiplication by a modular inverse. Scalar multiplication is repeated addition: Q = kG. The public key is Q, the private key is k. The reverse problem, finding k from G and Q, is the Elliptic Curve Discrete Logarithm Problem (ECDLP). On 17 elements it is trivial to brute-force; on 256 bits there is no known feasible attack.</p>
+<p><b>Double-and-add</b> computes kG in about log₂k doublings plus at most as many additions, instead of k−1 additions. For k = 6 = 110₂: start with G, double → 2G, add G → 3G, double → 6G.</p>
+<h2 id="code">2 Implementation</h2>
+<pre>const p=17, b=7;                       // curve y^2 = x^3 + 7 (mod p)
+const mod=(a)=>((a%p)+p)%p;
+const pw=(x,e)=>{let r=1;x=mod(x);while(e){if(e&1)r=mod(r*x);x=mod(x*x);e>>=1}return r};
+const inv=(x)=>pw(x,p-2);              // Fermat inverse
+function add(P,Q){                     // null = point at infinity O
+  if(!P)return Q; if(!Q)return P;
+  if(P[0]===Q[0] &amp;&amp; mod(P[1]+Q[1])===0)return null;
+  const l = P[0]===Q[0] ? mod(3*P[0]*P[0]*inv(2*P[1])) : mod((Q[1]-P[1])*inv(Q[0]-P[0]));
+  const x=mod(l*l-P[0]-Q[0]); return [x, mod(l*(P[0]-x)-P[1])];
+}
+function mul(k,P){let R=null,A=P;while(k){if(k&amp;1)R=add(R,A);A=add(A,A);k>>=1}return R}</pre>
+<h2 id="demo">3 Demo and animation</h2>
+<div class="box">Base point G: <select id="g"></select> Private key k: <input id="k" type="number" min="1" value="6" style="width:80px"> <button id="run">Compute</button> <button id="anim">Play slowly</button>
+<div id="ord" class="meta" style="margin-top:8px"></div>
+<canvas id="cv" width="560" height="560"></canvas><div id="log" class="out"></div></div>
+<p>Grey squares are all 17×17 grid cells that lie on the curve, gold is G, red is the current multiple. The path shows how successive multiples jump around the grid with no visible geometric pattern, which is the point: the line-and-chord picture from real numbers does not survive modular arithmetic.</p>
+<h2 id="real">4 Real secp256k1 (BigInt)</h2>
+<div class="box">k (decimal or 0x hex): <input id="rk" value="2" style="width:60%"> <button id="rrun">Compute kG</button><div id="rout" class="out"></div></div>
+<p>The same algorithm with BigInt and the real constants. For k = 1 it must return G, and the on-curve check must read true.</p>
+<h2 id="stats">5 Statistical exploration</h2>
+<p>For the chosen base point, the program computes kG for every k from 1 to n−1 (n is the order of G) and measures several properties.</p>
+<div class="box"><button id="st">Run statistics for the selected G</button><div id="sout" class="out"></div>
+<canvas id="hx" width="520" height="190"></canvas> <canvas id="hy" width="520" height="190"></canvas></div>
+<h2 id="disc">6 Discussion</h2>
+<h3>Properties that matter for a one-way function</h3>
+<p><b>One-wayness / hardness of inversion</b> is the defining property: k→kG is cheap, Q→k is believed hard (ECDLP). <b>Determinism</b> is needed so the same k always gives the same public key. <b>Apparent uniformity</b> of Q over the group is desirable, since structure in x or y would leak information about k. In the toy run the x and y histograms are roughly flat but visibly lumpy; with so few points a chi-square test has little power, and lumps are expected from small samples.</p>
+<h3>Properties that belong to hash functions</h3>
+<p><b>Avalanche</b> (flip one input bit, about half of output bits change) is a design goal of hashes and ciphers. Scalar multiplication is not built for it: kG and (k+1)G differ by exactly G, a fixed group step, and the output has algebraic structure (2G, 4G, 8G are chained by doubling). Related-key structure of this kind is exactly why k must be random and never derived by a weak rule. A measured bit-flip distance near half of the output bits is nice but not what security rests on. <b>Collision resistance and preimage resistance for arbitrary-length input</b> are hash notions: EC multiplication takes a bounded scalar and has an algebraic homomorphism, (a+b)G = aG + bG, which a hash must never have. That homomorphism is what makes signatures, key aggregation and BIP-32 public derivation possible.</p>
+<h3>Caveats</h3>
+<p>On a group of about 20 points every statistic is dominated by finite-size effects, and bit-level measures over 5-bit coordinates cannot say anything about 256-bit behaviour. The correlation between k and x is also not a security measure, since the sequence kG is periodic with period n. The exercise is a model for understanding, as the assignment notes.</p>
+</main></div>
+<script>
+const p=17,b=7,mod=a=>((a%p)+p)%p;
+const pw=(x,e)=>{let r=1;x=mod(x);while(e){if(e&1)r=mod(r*x);x=mod(x*x);e>>=1}return r},inv=x=>pw(x,p-2);
+function add(P,Q){if(!P)return Q;if(!Q)return P;if(P[0]===Q[0]&&mod(P[1]+Q[1])===0)return null;
+const l=P[0]===Q[0]?mod(3*P[0]*P[0]*inv(2*P[1])):mod((Q[1]-P[1])*inv(Q[0]-P[0]));const x=mod(l*l-P[0]-Q[0]);return[x,mod(l*(P[0]-x)-P[1])]}
+function mul(k,P){let R=null,A=P;while(k){if(k&1)R=add(R,A);A=add(A,A);k>>=1}return R}
+const pts=[];for(let x=0;x<p;x++)for(let y=0;y<p;y++)if(mod(y*y)===mod(x*x*x+b))pts.push([x,y]);
+const $=id=>document.getElementById(id),gsel=$('g');
+pts.forEach((q,i)=>{const o=document.createElement('option');o.value=i;o.text=`(${q[0]}, ${q[1]})`;if(q[0]==1&&q[1]==5)o.selected=true;gsel.add(o)});
+const G=()=>pts[gsel.value];
+function order(P){let R=P,n=1;while(R){R=add(R,P);n++}return n}
+const S=30,off=40,cx=$('cv').getContext('2d');
+function X(v){return off+v*S}function Y(v){return 540-off-v*S}
+function draw(path,cur){cx.clearRect(0,0,560,560);cx.strokeStyle='#e5ded8';cx.fillStyle='#555';cx.font='11px monospace';
+for(let i=0;i<p;i++){cx.beginPath();cx.moveTo(X(i),Y(0));cx.lineTo(X(i),Y(p-1));cx.moveTo(X(0),Y(i));cx.lineTo(X(p-1),Y(i));cx.stroke();cx.fillText(i,X(i)-4,Y(0)+22);cx.fillText(i,X(0)-26,Y(i)+4)}
+cx.fillStyle='#bbb';pts.forEach(q=>cx.fillRect(X(q[0])-5,Y(q[1])-5,10,10));
+cx.strokeStyle='#7a1420';cx.lineWidth=1.5;cx.beginPath();path.forEach((q,i)=>{if(!q)return;i?cx.lineTo(X(q[0]),Y(q[1])):cx.moveTo(X(q[0]),Y(q[1]))});cx.stroke();cx.lineWidth=1;
+const g=G();cx.fillStyle='#c99a1e';cx.fillRect(X(g[0])-8,Y(g[1])-8,16,16);
+if(cur){cx.fillStyle='#7a1420';cx.fillRect(X(cur[0])-8,Y(cur[1])-8,16,16)}}
+function seq(k){const g=G(),r=[g];let R=g;for(let i=2;i<=k;i++){R=add(R,g);r.push(R)}return r}
+const f=q=>q?`(${q[0]}, ${q[1]})`:'O';
+function run(){const g=G(),k=+$('k').value,n=order(g);$('ord').textContent=`Order of G = ${n}, so k is taken mod ${n} (k=${k%n||n} used for the point).`;
+const s=seq(k),bits=k.toString(2);let t=`G = ${f(g)}\n`;s.forEach((q,i)=>t+=`${i+1}G = ${f(q)}\n`);
+let R=g,tr=`double-and-add on k=${k} (${bits}):\nstart  ${f(g)}\n`;for(let i=1;i<bits.length;i++){R=add(R,R);tr+=`double -> ${f(R)}\n`;if(bits[i]==='1'){R=add(R,g);tr+=`add G  -> ${f(R)}\n`}}
+t+=`\n${tr}\nTOY PUBLIC KEY Q = kG = ${f(mul(k,g))}`;$('log').textContent=t;draw(s,s[s.length-1])}
+let timer;$('run').onclick=run;gsel.onchange=run;
+$('anim').onclick=()=>{clearInterval(timer);const k=Math.min(+$('k').value,200),s=seq(k);let i=0;timer=setInterval(()=>{i++;draw(s.slice(0,i),s[i-1]);$('log').textContent=`step ${i}: ${i}G = ${f(s[i-1])}`+(i>1?`  (= ${i-1}G + G)`:'');if(i>=k)clearInterval(timer)},700)};
+const P2=2n**256n-2n**32n-977n,M=a=>((a%P2)+P2)%P2;
+function pwB(x,e){let r=1n;x=M(x);while(e>0n){if(e&1n)r=M(r*x);x=M(x*x);e>>=1n}return r}
+function addB(P,Q){if(!P)return Q;if(!Q)return P;if(P[0]===Q[0]&&M(P[1]+Q[1])===0n)return null;
+const l=P[0]===Q[0]?M(3n*P[0]*P[0]*pwB(2n*P[1],P2-2n)):M((Q[1]-P[1])*pwB(Q[0]-P[0],P2-2n));const x=M(l*l-P[0]-Q[0]);return[x,M(l*(P[0]-x)-P[1])]}
+const GB=[0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n,0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n];
+function mulB(k,P){let R=null,A=P;while(k>0n){if(k&1n)R=addB(R,A);A=addB(A,A);k>>=1n}return R}
+$('rrun').onclick=()=>{try{const k=BigInt($('rk').value),Q=mulB(k,GB),h=v=>v.toString(16).padStart(64,'0');
+$('rout').textContent=`G on curve: ${M(GB[1]**2n)===M(GB[0]**3n+7n)}\nQx = ${h(Q[0])}\nQy = ${h(Q[1])}\nQ on curve: ${M(Q[1]**2n)===M(Q[0]**3n+7n)}`}catch(e){$('rout').textContent='Enter a positive integer below the group order.'}};
+function hist(id,arr,t){const c=$(id).getContext('2d'),w=520,h=190,m=Math.max(...arr,1),bw=(w-40)/p;c.clearRect(0,0,w,h);c.fillStyle='#201618';c.font='12px monospace';c.fillText(t,6,14);
+arr.forEach((v,i)=>{c.fillStyle='#7a1420';const bh=(h-50)*v/m;c.fillRect(30+i*bw,h-24-bh,bw-3,bh);c.fillStyle='#201618';c.fillText(i,30+i*bw,h-8)});
+const e=arr.reduce((a,b)=>a+b,0)/p,y=h-24-(h-50)*e/m;c.strokeStyle='#c99a1e';c.lineWidth=2;c.beginPath();c.moveTo(30,y);c.lineTo(w-10,y);c.stroke();c.lineWidth=1}
+const pc=(a,b)=>{const n=a.length,ma=a.reduce((x,y)=>x+y)/n,mb=b.reduce((x,y)=>x+y)/n;let s=0,va=0,vb=0;for(let i=0;i<n;i++){s+=(a[i]-ma)*(b[i]-mb);va+=(a[i]-ma)**2;vb+=(b[i]-mb)**2}return s/Math.sqrt(va*vb)};
+const pop=v=>{let c=0;while(v){c+=v&1;v>>=1}return c};
+$('st').onclick=()=>{const g=G(),n=order(g),K=[],XS=[],YS=[],hx=Array(p).fill(0),hy=Array(p).fill(0),code=[];
+for(let k=1;k<n;k++){const q=mul(k,g);K.push(k);XS.push(q[0]);YS.push(q[1]);hx[q[0]]++;hy[q[1]]++;code[k]=q[0]*32+q[1]}
+const chi=h=>h.reduce((a,v)=>a+(v-(n-1)/p)**2/((n-1)/p),0),nb=n.toString(2).length;let tot=0,cnt=0;
+for(let k=1;k<n;k++)for(let i=0;i<nb;i++){const k2=k^(1<<i);if(k2>=1&&k2<n){tot+=pop(code[k]^code[k2]);cnt++}}
+$('sout').textContent=`order n = ${n}, points sampled = ${n-1}\ndistinct x values = ${hx.filter(v=>v).length}/${p}, distinct y values = ${hy.filter(v=>v).length}/${p}\nchi-square(x) vs flat = ${chi(hx).toFixed(2)} (df ~ ${p-1}); chi-square(y) = ${chi(hy).toFixed(2)}\ncorr(k,x) = ${pc(K,XS).toFixed(3)}, corr(k,y) = ${pc(K,YS).toFixed(3)}\navalanche: mean bit change over a 1-bit flip of k = ${(tot/cnt).toFixed(2)} of 10 output bits (ideal hash: 5.00)\nNote: tiny group, so values fluctuate; compare several base points.`;
+hist('hx',hx,'x coordinate frequency (gold line = uniform expectation)');hist('hy',hy,'y coordinate frequency')};
+run();
+</script></body></html>

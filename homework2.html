@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HMWK 2 | Petar Rakočević</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><span>stats-2026-27 / hmwk2</span><span><a href="index.html">Home</a><a href="homework1.html">HMWK 1</a></span></header>
+<div class="wrap"><aside><b>Chapters</b><a href="#pipe">1 The pipeline</a><a href="#terms">2 Terminology</a><a href="#prims">3 The primitives</a><a href="#vec">4 Worked example</a><a href="#hist">5 Historical context</a><a href="#keccak">6 SHA-2 vs Keccak</a><a href="#why">7 Why many primitives</a><a href="#stat">8 Statistical properties</a><a href="#lab">9 Avalanche lab</a><a href="#exp">10 Wallet experiment</a></aside><main>
+<h1>HMWK 2: From wallet seed to Ethereum address</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
+<h2 id="pipe">1 The pipeline</h2>
+<div class="pipe"><div><b>Mnemonic</b>12-24 words<i>BIP-39</i></div><div><b>Seed</b>512 bits<i>PBKDF2-HMAC-SHA512</i></div><div><b>Private key</b>256 bits<i>BIP-32 / BIP-44</i></div><div><b>Public key</b>64 bytes (x,y)<i>secp256k1</i></div><div><b>Address</b>20 bytes<i>Keccak-256</i></div><div><b>Checksummed</b>mixed case<i>EIP-55</i></div></div>
+<p>Each arrow is a one-way step except the first: the seed cannot be walked back to a private key by anyone who lacks it, and nothing downstream reveals what is upstream. A wallet stores only the mnemonic; everything else is recomputed on demand.</p>
+<h2 id="terms">2 Terminology</h2>
+<table><tr><th>Concept</th><th>Meaning</th><th>Example in the pipeline</th></tr>
+<tr><td>Key generation</td><td>Creating fresh secret randomness</td><td>Random 128-256 bits of entropy behind the mnemonic</td></tr>
+<tr><td>Key derivation</td><td>Deterministically computing keys from existing secret material</td><td>Seed to child keys (BIP-32), mnemonic to seed (PBKDF2)</td></tr>
+<tr><td>Public-key cryptography</td><td>Key pair with an asymmetric one-way relation</td><td>k to Q = kG on secp256k1; signatures</td></tr>
+<tr><td>Hashing</td><td>Fixed-size fingerprint of arbitrary data, no key</td><td>Keccak-256 of the public key</td></tr>
+<tr><td>Checksum</td><td>Redundancy that detects accidental errors, not attacks</td><td>BIP-39 last bits; EIP-55 capitalisation</td></tr>
+<tr><td>Encoding</td><td>Reversible re-representation, no secrecy</td><td>Hex, word lists, 0x prefix</td></tr></table>
+<h2 id="prims">3 The primitives</h2>
+<h3>BIP-39: mnemonic and seed</h3>
+<p>Random entropy of 128 bits (12 words) up to 256 bits (24 words) is extended with a checksum, the first ENT/32 bits of its SHA-256, and cut into 11-bit groups, each indexing a 2048-word list. A 12-word phrase is 128+4 = 132 = 12×11 bits. The seed is <code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048 iterations)</code>, giving 512 bits. The optional passphrase creates an entirely different wallet, so it works as a second factor. The 2048 iterations only slow down guessing of weak phrases; they add no entropy.</p>
+<h3>BIP-32: hierarchical deterministic keys</h3>
+<p>The master key and chain code come from <code>HMAC-SHA512("Bitcoin seed", seed)</code>: the left 32 bytes are the master private key, the right 32 bytes the chain code. A child is derived with HMAC-SHA512 keyed by the parent chain code. <i>Hardened</i> children (index ≥ 2³¹, written with an apostrophe) use the parent private key as input, so a leaked child key plus the parent public key cannot reveal siblings. Normal children use the public key, which allows watch-only wallets to derive addresses.</p>
+<h3>BIP-44: derivation paths</h3>
+<p>The layout is <code>m / purpose' / coin_type' / account' / change / address_index</code>. Ethereum has coin type 60, so the first account is <code>m/44'/60'/0'/0/0</code>. BIP-44 is only a convention that lets different wallets recover the same accounts from one phrase.</p>
+<h3>secp256k1</h3>
+<p>The curve y² = x³ + 7 over a 256-bit prime field, with generator G. Public key Q = kG (see HMWK 1). Ethereum uses it for ECDSA signatures with public-key recovery from the signature, which is why transactions do not carry the sender's public key.</p>
+<h3>Keccak-256</h3>
+<p>The 64-byte uncompressed public key (x‖y, without the 0x04 prefix) is hashed and the <b>last 20 bytes</b> are the address. Hashing compresses the key and adds a layer of separation between address and public key.</p>
+<h3>EIP-55</h3>
+<p>Take the lowercase hex address, hash its ASCII text with Keccak-256; for each letter a-f, uppercase it if the matching hex digit of the hash is 8 or higher. The address value is unchanged, only its capitalisation carries the checksum.</p>
+<h2 id="vec">4 Worked example (public test vectors)</h2>
+<div class="box"><pre>mnemonic: abandon abandon abandon abandon abandon abandon
+          abandon abandon abandon abandon abandon about
+path:     m/44'/60'/0'/0/0
+address:  0x9858EfFD232B4033E47d90003D41EC34EcaEda94
+
+private key = 1 (toy case, never use!)
+address:  0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
+
+EIP-55 sample: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</pre>
+<p>The first is the widely used BIP-39 test phrase; it appears in many wallet tests, so it is public and holds no safe funds. Paste it into a wallet only on a throwaway device to compare. Private key 1 gives Q = G, so it shows the Keccak step in isolation, and its address is similarly famous and swept by bots.</p></div>
+<h2 id="hist">5 Historical context</h2>
+<div class="tl"><div><b>1977</b> RSA, the first practical public-key system.</div><div><b>2001</b> SHA-2 family (including SHA-512) standardised by NIST.</div><div><b>2012</b> BIP-32 hierarchical deterministic wallets.</div><div><b>2013</b> BIP-39 mnemonic codes.</div><div><b>2014</b> BIP-44 multi-account hierarchy.</div><div><b>2015</b> SHA-3 standardised (FIPS 202), based on Keccak; Ethereum mainnet launches, already using the original Keccak.</div><div><b>2016</b> EIP-55 checksum addresses.</div></div>
+<p>Two points come out of the timeline. The wallet standards (2012-2014) predate SHA-3 and so rely on SHA-2 internally, while Ethereum's address hash comes from the newer family. And Ethereum adopted Keccak before NIST finalised its changes, which created the SHA-3 vs Keccak mismatch below.</p>
+<h2 id="keccak">6 SHA-2/SHA-512 vs Keccak/SHA-3</h2>
+<table><tr><th></th><th>SHA-2 / SHA-512</th><th>Keccak / SHA-3</th></tr><tr><td>Construction</td><td>Merkle-Damgard with compression function</td><td>Sponge on a 1600-bit permutation</td></tr><tr><td>Length extension</td><td>Possible on raw SHA-2 (not on truncated variants)</td><td>Not applicable to the sponge</td></tr><tr><td>Role in wallet</td><td>PBKDF2, HMAC (seed, BIP-32)</td><td>Address, EIP-55</td></tr></table>
+<p>They are related in purpose, not in design. Keccak won the NIST competition (2012) and was standardised as SHA-3 with an added domain-separation suffix, so the padding byte differs (0x01 for original Keccak, 0x06 for SHA3-256). Same permutation, different outputs. Ethereum's "keccak256" is the original, so a library's <code>sha3_256</code> will give a wrong address. Test vectors for the empty string: Keccak-256 = <code>c5d24601…5d85a470</code>, SHA3-256 = <code>a7ffc6f8…f8434a</code>.</p>
+<h2 id="why">7 Why not one algorithm for everything?</h2>
+<p>Each stage needs a different security property, and no single primitive provides them all. BIP-39/32/44 handle key management: backup in human-readable form and structured deterministic derivation. secp256k1 gives the algebraic key-pair relation needed for signatures, which a hash cannot (a hash has no verifiable public/private relation). Keccak-256 gives short, uniform, hard-to-invert identifiers. EIP-55 only detects typing mistakes; it is not security against attackers. Separation also limits damage: a break in one primitive does not automatically break the rest, and each component can be replaced (SHA-3 replaced SHA-2 in newer designs) without redesigning the whole.</p>
+<h2 id="stat">8 Statistical properties by stage</h2>
+<table><tr><th>Stage</th><th>Property expected</th><th>Comment</th></tr>
+<tr><td>Entropy</td><td>Uniform random bits</td><td>The only real source of secrecy; a biased RNG ruins everything downstream</td></tr>
+<tr><td>PBKDF2 / HMAC-SHA512</td><td>Output indistinguishable from random</td><td>Pseudorandom function behaviour; avalanche holds</td></tr>
+<tr><td>BIP-32 children</td><td>Independent-looking keys</td><td>Hardened children unlinkable without the parent secret</td></tr>
+<tr><td>secp256k1 Q = kG</td><td>One-wayness (ECDLP), not avalanche</td><td>Algebraic structure: (a+b)G = aG+bG</td></tr>
+<tr><td>Keccak-256</td><td>Avalanche, uniformity, collision resistance</td><td>Roughly half of the output bits flip per input bit change</td></tr>
+<tr><td>EIP-55</td><td>Detects about all but 1 in 2<sup>15</sup> errors</td><td>A 40-digit address has about 15 letters on average, each one a checksum bit</td></tr></table>
+<h2 id="lab">9 Avalanche lab</h2>
+<div class="box">Input text: <input id="t" value="ethereum" style="width:60%"> <button id="go">Hash and flip one bit</button><div id="o" class="out"></div></div>
+<p>This uses SHA-256 from the browser's built-in WebCrypto as a stand-in, because Keccak is not available there. It shows the typical hash avalanche that Keccak-256 also has (expected change: 128 of 256 bits).</p>
+<h2 id="exp">10 Wallet experiment</h2>
+<p><i>To be completed by me:</i> import the test phrase from chapter 4 into a wallet such as MetaMask or Rabby on a throwaway profile, check the first address, change the derivation path or add a passphrase and observe that a different address appears. Screenshots go in an <code>img/</code> folder.</p>
+<p>References: BIP-32, BIP-39, BIP-44 (github.com/bitcoin/bips), EIP-55 (eips.ethereum.org/EIPS/eip-55), NIST FIPS 202.</p>
+</main></div>
+<script>
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+const sha=async u=>new Uint8Array(await crypto.subtle.digest('SHA-256',u));
+document.getElementById('go').onclick=async()=>{const a=new TextEncoder().encode(document.getElementById('t').value||' '),c=a.slice();c[0]^=1;
+const h1=await sha(a),h2=await sha(c);let d=0;h1.forEach((v,i)=>{let x=v^h2[i];while(x){d+=x&1;x>>=1}});
+document.getElementById('o').textContent=`H(m)  = ${hex(h1)}\nH(m') = ${hex(h2)}\nbits changed: ${d}/256 (${(d/2.56).toFixed(1)}%), expected ~50%`}
+</script></body></html>
