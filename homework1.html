@@ -83,7 +83,7 @@ $('st').onclick=()=>{const g=G(),n=order(g),K=[],XS=[],YS=[],hx=Array(p).fill(0)
 for(let k=1;k<n;k++){const q=mul(k,g);K.push(k);XS.push(q[0]);YS.push(q[1]);hx[q[0]]++;hy[q[1]]++;code[k]=q[0]*32+q[1]}
 const chi=h=>h.reduce((a,v)=>a+(v-(n-1)/p)**2/((n-1)/p),0),nb=n.toString(2).length;let tot=0,cnt=0;
 for(let k=1;k<n;k++)for(let i=0;i<nb;i++){const k2=k^(1<<i);if(k2>=1&&k2<n){tot+=pop(code[k]^code[k2]);cnt++}}
-$('sout').textContent=`order n = ${n}, points sampled = ${n-1}\ndistinct x values = ${hx.filter(v=>v).length}/${p}, distinct y values = ${hy.filter(v=>v).length}/${p}\nchi-square(x) vs flat = ${chi(hx).toFixed(2)} (df ~ ${p-1}); chi-square(y) = ${chi(hy).toFixed(2)}\ncorr(k,x) = ${pc(K,XS).toFixed(3)}, corr(k,y) = ${pc(K,YS).toFixed(3)}\navalanche: mean bit change over a 1-bit flip of k = ${(tot/cnt).toFixed(2)} of 10 output bits (ideal hash: 5.00)\nNote: tiny group, so values fluctuate; compare several base points.`;
+$('sout').textContent=`order n = ${n}, points sampled = ${n-1}\ndistinct x values = ${hx.filter(v=>v).length}/${p}, distinct y values = ${hy.filter(v=>v).length}/${p}\nchi-square(x) vs flat = ${chi(hx).toFixed(2)} (df ~ ${p-1}); chi-square(y) = ${chi(hy).toFixed(2)}\ncorr(k,x) = ${pc(K,XS).toFixed(3)}, corr(k,y) = ${pc(K,YS).toFixed(3)}\navalanche: mean bit change over a 1-bit flip of k = ${(tot/cnt).toFixed(2)} of 10 output bits (ideal hash: 5.00)\n`; <!--Note: tiny group, so values fluctuate; compare several base points.-->
 hist('hx',hx,'x coordinate frequency (gold line = uniform expectation)');hist('hy',hy,'y coordinate frequency')};
 run();
 </script></body></html>
