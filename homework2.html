@@ -60,10 +60,10 @@ EIP-55 sample: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</pre>
 <h2 id="exp">10 Wallet experiment</h2>
 <p>I ran the pipeline in a BIP-39 derivation tool (Ian Coleman's open-source page) instead of a wallet extension, because it exposes every intermediate value: seed, root key, derivation path, public key, private key and address. I used the public test phrase from chapter 4, Ethereum as the coin, and the BIP-44 path <code>m/44'/60'/0'/0/0</code>. Only one input was changed between the two runs: the optional BIP-39 passphrase.</p>
 <h3>Run A: no passphrase</h3>
-<img src="img/Screenshot 2026-10-15 201040.png" alt="Mnemonic, empty passphrase, seed and BIP32 root key"><img src="img/Screenshot 2026-10-15 201122.png" alt="Row 0 with address 0x9858EfFD...Eda94">
+<img src="img/Screenshot 2026-10-15 201040.png"><img src="img/Screenshot 2026-10-15 201122.png">
 <p>The seed begins <code>5eb00bbd…</code> and the first address is <code>0x9858EfFD232B4033E47d90003D41EC34EcaEda94</code>, identical to the test vector of chapter 4. The public key is shown in compressed form (33 bytes, prefix <code>02</code>/<code>03</code> plus x), while Ethereum hashes the uncompressed x‖y.</p>
 <h3>Run B: passphrase "test"</h3>
-<img src="img/Screenshot 2026-10-15 201313.png" alt="Same mnemonic with passphrase test, different seed and root key"><img src="img/Screenshot 2026-10-15 201339.png" alt="Row 0 with address 0xB560762f...fF99b">
+<img src="img/Screenshot 2026-10-15 201313.png"><img src="img/Screenshot 2026-10-15 201339.png">
 <p>The seed becomes <code>0bcdfe83…</code> and the address <code>0xB560762fa35eFD20DF74b2cdEeB49D7A975fF99b</code>. The mnemonic and the path did not change.</p>
 <h3>Measured differences</h3>
 <table><tr><th>Value</th><th>Bits</th><th>Bits that differ</th><th>Share</th></tr>
