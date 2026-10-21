@@ -1,8 +1,8 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HMWK 2 | Petar Rakočević</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homework 2 | Petar Rakočević</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
-<header class="top"><span>stats-2026-27 / hmwk2</span><span><a href="index.html">Home</a><a href="homework1.html">HMWK 1.1</a><a href="homework2.html">HMWK 1.2</a></span></header>
+<header class="top"><span>stats-2026-27 / Homework2</span><span><a href="index.html">Home</a><a href="homework1.html">Homework 1.1</a><a href="homework2.html">Homework 1.2</a></span></header>
 <div class="wrap"><aside><b>Chapters</b><a href="#ecc">1 Toy EC scheme</a><a href="#cae">2 Caesar cipher</a><a href="#demo">3 Same message, both</a><a href="#cmp">4 Comparison</a><a href="#stat">5 Statistics lab</a><a href="#crypt">6 Attacking Caesar</a><a href="#tests">7 Length and methods</a><a href="#atk">8 Attacking the toy EC</a><a href="#why">9 Why real ECC resists</a><a href="#weak">10 Weaknesses</a></aside><main>
-<h1>HMWK 2: Encryption, decryption and attacks</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
+<h1>Homework 2: Encryption, decryption and attacks</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
 <h2 id="ecc">1 The toy elliptic-curve scheme</h2>
 <p>Part 1 gave us the one-way map k → Q = kG on secp256k1. A map like that does not encrypt anything on its own, so to encrypt a message I use it as a key-agreement step (Diffie-Hellman on the curve) and build the rest in the style of ECIES. The restriction that makes the experiments feasible is that the private key k is a small integer (at most 2<sup>b</sup> for a chosen b, here up to 22 bits). The curve and G are the real secp256k1 ones.</p>
 <table><tr><th>Step</th><th>Who</th><th>Operation</th></tr>
