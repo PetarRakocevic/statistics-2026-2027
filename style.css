@@ -37,8 +37,8 @@ canvas{max-width:100%;background:#fff;border:1px solid var(--line)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
 main{min-width:0}
-pre,table,.box,.out{max-width:100%}
+pre,table,.box,.out{max-width:70%}
 .box{overflow-x:auto}
-canvas{max-width:100%;height:auto}
-textarea{max-width:100%}
+canvas{max-width:70%;height:auto}
+textarea{max-width:70%}
 html,body{overflow-x:hidden}
