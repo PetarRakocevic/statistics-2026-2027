@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HMWK 2 | Petar Rakočević</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><span>stats-2026-27 / hmwk2</span><span><a href="index.html">Home</a><a href="homework1.html">HMWK 1.1</a><a href="homework2.html">HMWK 1.2</a></span></header>
+<div class="wrap"><aside><b>Chapters</b><a href="#ecc">1 Toy EC scheme</a><a href="#cae">2 Caesar cipher</a><a href="#demo">3 Same message, both</a><a href="#cmp">4 Comparison</a><a href="#stat">5 Statistics lab</a><a href="#crypt">6 Attacking Caesar</a><a href="#tests">7 Length and methods</a><a href="#atk">8 Attacking the toy EC</a><a href="#why">9 Why real ECC resists</a><a href="#weak">10 Weaknesses</a></aside><main>
+<h1>HMWK 2: Encryption, decryption and attacks</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
+<h2 id="ecc">1 The toy elliptic-curve scheme</h2>
+<p>Part 1 gave us the one-way map k → Q = kG on secp256k1. A map like that does not encrypt anything on its own, so to encrypt a message I use it as a key-agreement step (Diffie-Hellman on the curve) and build the rest in the style of ECIES. The restriction that makes the experiments feasible is that the private key k is a small integer (at most 2<sup>b</sup> for a chosen b, here up to 22 bits). The curve and G are the real secp256k1 ones.</p>
+<table><tr><th>Step</th><th>Who</th><th>Operation</th></tr>
+<tr><td>Key pair</td><td>Receiver</td><td>private k (small), public Q = kG</td></tr>
+<tr><td>Encrypt</td><td>Sender</td><td>pick ephemeral r; send R = rG; shared point S = rQ; keystream = SHA-256(S.x ‖ counter); ciphertext = message XOR keystream</td></tr>
+<tr><td>Decrypt</td><td>Receiver</td><td>S = kR (equals rQ because rkG = krG); regenerate keystream; XOR again</td></tr></table>
+<p><b>Role of the keys.</b> k is the secret only the receiver holds. Q is public and lets anyone start a conversation. r is a fresh one-time secret that makes every message use a different keystream, and R is its public image, sent with the ciphertext. The curve provides only the shared secret S; the actual hiding is done by XOR with a hash-derived keystream, which is also how real hybrid schemes work.</p>
+<h2 id="cae">2 The Caesar cipher</h2>
+<p>Each letter is moved by a fixed shift s: E(x) = (x + s) mod 26, D(y) = (y − s) mod 26, with non-letters unchanged. The key is the single number s, so the key space has 26 values (25 that change the text). Despite its simplicity, it is the model of every monoalphabetic cipher: each plaintext letter always maps to the same ciphertext letter.</p>
+<pre>const caesar=(t,s)=>t.replace(/[a-z]/gi,c=>{const b=c&lt;='Z'?65:97;
+  return String.fromCharCode(((c.charCodeAt(0)-b+s)%26+26)%26+b)});
+// ECIES-like: R=rG, S=rQ, ct = msg XOR SHA256(S.x||i)   ... decrypt uses S=kR
+const chi=(cnt,s)=>{const n=sum(cnt);return cnt.map((_,i)=>{const e=n*EN[i]/100,o=cnt[(i+s)%26];return(o-e)**2/e}).reduce(add)};</pre>
+<h2 id="demo">3 Same message, both schemes</h2>
+<div class="box">Message: <input id="msg" value="Meet me at the library at noon" style="width:60%"><br><br>
+Caesar shift: <input id="sh" type="number" value="7" style="width:70px"> Private key k: <input id="k" value="12345" style="width:90px"> Ephemeral r: <input id="r" value="987" style="width:90px"> <button id="run">Encrypt and decrypt</button><div id="dout" class="out"></div></div>
+<h2 id="cmp">4 Similarities and differences</h2>
+<table><tr><th></th><th>Caesar</th><th>Toy EC scheme</th></tr>
+<tr><td>Type</td><td>Symmetric, same key both ways</td><td>Asymmetric key agreement plus symmetric stream cipher</td></tr>
+<tr><td>Encryption</td><td>Add s to each letter mod 26</td><td>XOR with keystream from SHA-256 of the shared point</td></tr>
+<tr><td>Decryption</td><td>Subtract s</td><td>Recompute S = kR, same XOR</td></tr>
+<tr><td>Key space</td><td>26 shifts, about 4.7 bits</td><td>b bits here (k ≤ 2<sup>b</sup>); about 2<sup>256</sup> for real secp256k1</td></tr>
+<tr><td>Message unit</td><td>Letters only</td><td>Arbitrary bytes</td></tr>
+<tr><td>Statistics of ciphertext</td><td>Letter histogram of the language, only rotated; index of coincidence unchanged</td><td>Bytes close to uniform, because the keystream is a hash output</td></tr>
+<tr><td>Oracle for a wrong key</td><td>Text stops looking like language</td><td>Same, plus an exact test Q = kG</td></tr>
+<tr><td>Integrity</td><td>None</td><td>None (malleable XOR, see chapter 10)</td></tr></table>
+<p>The common point is that both are ciphers whose output is a deterministic function of message and key, and both fail completely if the key space can be enumerated. The difference is where the secrecy lives: in Caesar it is the shift itself, in the EC scheme it rests on the hardness of finding k or r from Q or R, and on the strength of the hash.</p>
+<h2 id="stat">5 Statistics lab: what the ciphertext looks like</h2>
+<div class="box"><button id="stb">Encrypt the corpus with both schemes</button><div id="sto" class="out"></div>
+<canvas id="c1" width="520" height="200"></canvas> <canvas id="c2" width="520" height="200"></canvas></div>
+<p>Left: Caesar ciphertext letter frequency (red) against English expectation (gold). The shape of English is intact, only shifted, which is exactly what the attack uses. Right: the EC scheme's ciphertext bytes in 32 bins (gold = flat expectation). Index of coincidence for English letters is about 0.067 and for a uniform choice about 0.038; Caesar keeps the first value, a keystream cipher gives about 1/256 on bytes. Entropy of a sample of 1000 bytes sits slightly below 8 bits purely from sampling.</p>
+<h2 id="crypt">6 Statistical cryptanalysis of the Caesar cipher</h2>
+<p><b>Idea.</b> For every candidate shift s, undo it and measure how English the result looks. The reference distribution is the standard English letter frequency table p<sub>i</sub> (a-z). The score is the chi-square statistic χ² = Σ (O<sub>i</sub> − n·p<sub>i</sub>)² / (n·p<sub>i</sub>), where O<sub>i</sub> counts letter i in the decrypted candidate. The shift with the smallest χ² is the estimated key. A box below also accepts any corpus you paste, so the language can be changed.</p>
+<div class="box">Ciphertext:<br><textarea id="ct" rows="3" style="width:100%;font:13px monospace"></textarea><br>
+<button id="at">Attack</button><div id="ato" class="out"></div><canvas id="c3" width="520" height="200"></canvas></div>
+<h2 id="tests">7 Effect of length and comparison of methods</h2>
+<p>Corpus (the plain text source of the test; replace it with any English text, the longer the better):</p>
+<textarea id="corp" rows="7" style="width:100%;font:13px monospace"></textarea>
+<div class="box">Trials per length: <input id="nt" type="number" value="300" style="width:80px"> <button id="tb">Run test</button><div id="to" class="out"></div><canvas id="c4" width="800" height="320"></canvas></div>
+<p>Four methods are compared. <b>Naive E</b> assumes the most frequent ciphertext letter is e. <b>Dot product</b> picks the shift maximising Σ O<sub>i</sub>·p<sub>i</sub>. <b>Chi-square</b> as in chapter 6. <b>N-gram</b> scores each of the 26 decrypted candidates by how many common English bigrams and trigrams (th, he, in, the, and, ing, …) it contains. Exhaustive key search is the common skeleton of all four: they all try all 26 shifts and differ only in the scoring function; a human reading the 26 candidates is a fifth, scoring-free variant, which is trivial for 26 keys.</p>
+<h3>Discussion</h3>
+<p>Success rises with length because the observed histogram converges to the language distribution (law of large numbers), and the 26 candidate scores separate. For a handful of letters all methods are close to guessing, since few letters cannot reveal a distribution; some words, such as "zzz" or "eee", are in fact ambiguous. Naive E is the weakest because it relies on a single letter, which is often beaten by t, a or o in short texts. Chi-square and the dot product use all 26 letters and behave similarly. N-gram scoring uses structure instead of single-letter counts and is usually the most robust on short text. Limits shared by all: they need a known language and enough text, they assume a monoalphabetic text without noise, and numbers or unusual vocabulary shift the statistics.</p>
+<h2 id="atk">8 Attacking the toy EC scheme</h2>
+<p>The restriction k ≤ 2<sup>b</sup> allows two attacks, both working from the public key Q.</p>
+<div class="box">Key bits b: <input id="bits" type="range" min="10" max="22" value="16"> <span id="bv">16</span> <button id="ab">Generate victim and attack</button><div id="ao" class="out"></div></div>
+<p><b>Exhaustive search:</b> compute G, 2G, 3G, … until kG equals Q; at most 2<sup>b</sup> additions. <b>Baby-step giant-step:</b> with m = ⌈√(2<sup>b</sup>)⌉, store jG for j &lt; m in a table, then walk Q − i·mG for i = 0, 1, … until it hits the table; then k = i·m + j. It needs about 2·√(2<sup>b</sup>) operations at the cost of √(2<sup>b</sup>) memory. Once k is known, S = kR and the message is decrypted. Exhaustive search is skipped above 17 bits in the demo to keep the page responsive.</p>
+<h3>Difference from the Caesar attack</h3>
+<p>The Caesar attack needs language statistics as the judge of a candidate key, so its answer is probabilistic and depends on text length. The EC attack has an exact judge, Q = kG, so it needs no statistics and never fails for any message length; it can even be run without knowing the plaintext's language. Without Q, one can still try each k on the ciphertext and recognise printable text, but the public key gives a cleaner test.</p>
+<h2 id="why">9 Why a properly configured ECC scheme is not attackable this way</h2>
+<p>Exhaustive search over n ≈ 1.16·10<sup>77</sup> ≈ 2<sup>256</sup> keys is out of reach: even at a billion additions per second it would take about 10<sup>60</sup> years. Baby-step giant-step would need roughly 2<sup>128</sup> table entries, far beyond any storage. The best generic attack on the curve is Pollard's rho, about 2<sup>128</sup> operations with negligible memory, which is still infeasible (the demo estimates it from the measured speed). Hence the doubling of the bit-length: security level is about half the key size in bits. In addition, no structural weakness is known for secp256k1 itself (it is not a supersingular or anomalous curve), and the key space only protects if k is chosen uniformly at random and not from a weak source.</p>
+<h2 id="weak">10 Weaknesses: key space versus design</h2>
+<p><b>Caused by the restricted key space:</b> exhaustive search and BSGS; also the ephemeral r, if small, can be recovered from R = rG the same way, giving S = rQ without touching k.</p>
+<p><b>Caused by the design of the toy scheme itself, even with a full key space:</b> (1) <i>no authentication</i>: XOR is malleable, flipping a ciphertext bit flips the same plaintext bit, and the receiver cannot notice; real schemes add a MAC or use an AEAD cipher. (2) <i>Ephemeral reuse</i>: the same r twice gives the same keystream, so C₁ ⊕ C₂ = M₁ ⊕ M₂, a two-time pad. (3) <i>Home-made key derivation</i>: SHA-256(x ‖ counter) is acceptable for a demo but a real scheme uses a proper KDF with context. (4) <i>Poor randomness</i>: if k or r come from a weak generator the full key space is irrelevant. (5) <i>No validation</i> that R lies on the curve, which in some implementations allows invalid-curve attacks. (6) Plaintext length is revealed, and the receiver's identity is bound only by Q.</p>
+<p>Conclusion: the Caesar cipher falls to statistics because its structure leaks into the ciphertext; the toy EC scheme falls to brute force only because I deliberately shrank k. With a 256-bit key the weaknesses that remain are the ones in the design, not in the curve.</p>
+</main></div>
+<script>
+const $=id=>document.getElementById(id),add=(a,b)=>a+b,sum=a=>a.reduce(add,0);
+const EN=[8.167,1.492,2.782,4.253,12.702,2.228,2.015,6.094,6.966,0.153,0.772,4.025,2.406,6.749,7.507,1.929,0.095,5.987,6.327,9.056,2.758,0.978,2.36,0.15,1.974,0.074];
+const BG=new Set('th he in er an re on at en nd ti es or te of ed is it al ar st to nt ng se ha as ou io le ve co me de hi ri ro ic ne ea ra ce li ch ll be ma si om ur'.split(' ')),TG=new Set('the and ing ent ion her for tha nth int ere tio ter est ers ati hat ate all eth hes ver his oft ith fth sth oth res ont'.split(' '));
+const caesar=(t,s)=>t.replace(/[a-z]/gi,c=>{const b=c<='Z'?65:97;return String.fromCharCode(((c.charCodeAt(0)-b+s)%26+26)%26+b)});
+const cnt=t=>{const c=Array(26).fill(0);for(const ch of t.toLowerCase())if(ch>='a'&&ch<='z')c[ch.charCodeAt(0)-97]++;return c};
+const arg=(a,mx)=>a.reduce((b,v,i)=>(mx?v>a[b]:v<a[b])?i:b,0);
+const chi=(c,s)=>{const n=sum(c);return sum(c.map((_,i)=>{const e=n*EN[i]/100,o=c[(i+s)%26];return(o-e)**2/e}))};
+const dot=(c,s)=>sum(c.map((_,i)=>c[(i+s)%26]*EN[i]));
+const ngr=(t,s)=>{const d=caesar(t,-s).toLowerCase().replace(/[^a-z]/g,'');let v=0;for(let i=0;i<d.length;i++){if(BG.has(d.substr(i,2)))v++;if(TG.has(d.substr(i,3)))v+=2}return v};
+const sc=(f,t)=>{const c=cnt(t);return Array.from({length:26},(_,s)=>f===ngr?ngr(t,s):f(c,s))};
+const METH={'Naive E':t=>{const c=cnt(t);return(arg(c,1)-4+26)%26},'Dot product':t=>arg(sc(dot,t),1),'Chi-square':t=>arg(sc(chi,t),0),'N-gram':t=>arg(sc(ngr,t),1)};
+const CORP="Every language leaves a statistical fingerprint. Some letters appear again and again, while others are rare visitors that show up only in unusual words. When a message is hidden by shifting each letter by the same distance, the shape of that fingerprint is not destroyed, it is only moved along the alphabet. An analyst who knows the habits of the language can therefore look at a page of unreadable text and ask which shift would bring the familiar pattern back. The longer the page, the clearer the answer becomes, because chance has more opportunities to average out. A short note, on the other hand, may contain only a handful of letters, and a handful of letters can easily mislead even a careful reader. This is the same reason a coin tossed ten times may favour heads, while a coin tossed ten thousand times will not. Patterns emerge slowly from noise, and a method that works well on a long letter may fail on a single sentence. For that reason it is useful to measure how often each method succeeds for messages of different sizes, instead of trusting one lucky example. Good methods also deserve comparison with simpler ones, since a simple guess is sometimes surprisingly strong when the text is long enough and the language behaves as expected.";
+$('corp').value=CORP;$('ct').value=caesar("Statistics reveals the pattern that every simple substitution leaves behind, because the habits of a language survive the shift.",11);
+/* charts */
+function bars(id,v,ref,lab,title){const c=$(id).getContext('2d'),w=520,h=200,m=Math.max(...v,...ref,1e-9),bw=(w-40)/v.length;c.clearRect(0,0,w,h);c.fillStyle='#201618';c.font='12px monospace';c.fillText(title,6,14);
+v.forEach((x,i)=>{c.fillStyle='#7a1420';const bh=(h-52)*x/m;c.fillRect(30+i*bw,h-24-bh,bw-2,bh);c.fillStyle='#c99a1e';c.fillRect(30+i*bw,h-24-(h-52)*ref[i]/m-2,bw-2,4);c.fillStyle='#201618';if(lab[i]!==''&&v.length<=26)c.fillText(lab[i],30+i*bw+1,h-8)})}
+function lines(id,xs,S){const c=$(id).getContext('2d'),w=800,h=320,L=50,B=40;c.clearRect(0,0,w,h);c.font='12px monospace';c.strokeStyle='#e5ded8';
+for(let y=0;y<=1;y+=.25){const yy=h-B-(h-B-20)*y;c.beginPath();c.moveTo(L,yy);c.lineTo(w-10,yy);c.stroke();c.fillStyle='#201618';c.fillText((y*100)+'%',6,yy+4)}
+xs.forEach((x,i)=>c.fillText(x,L+i*(w-L-30)/(xs.length-1)-8,h-18));const col=['#999','#c99a1e','#a3202e','#201618'];
+Object.keys(S).forEach((n,j)=>{c.strokeStyle=col[j];c.lineWidth=3;c.beginPath();S[n].forEach((v,i)=>{const X=L+i*(w-L-30)/(xs.length-1),Y=h-B-(h-B-20)*v;i?c.lineTo(X,Y):c.moveTo(X,Y)});c.stroke();c.fillStyle=col[j];c.fillRect(L+j*150,2,12,12);c.fillStyle='#201618';c.fillText(n,L+j*150+16,13)});c.lineWidth=1}
+/* EC part */
+const P=2n**256n-2n**32n-977n,Mo=a=>((a%P)+P)%P,G=[0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n,0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n];
+const inv=a=>{let r0=P,r1=Mo(a),t0=0n,t1=1n;while(r1){const q=r0/r1;[r0,r1]=[r1,r0-q*r1];[t0,t1]=[t1,t0-q*t1]}return Mo(t0)};
+function ecadd(A,B){if(!A)return B;if(!B)return A;if(A[0]===B[0]&&Mo(A[1]+B[1])===0n)return null;
+const l=A[0]===B[0]?Mo(3n*A[0]*A[0]*inv(2n*A[1])):Mo((B[1]-A[1])*inv(B[0]-A[0]));const x=Mo(l*l-A[0]-B[0]);return[x,Mo(l*(A[0]-x)-A[1])]}
+function ecmul(k,Pt){let R=null,A=Pt;while(k>0n){if(k&1n)R=ecadd(R,A);A=ecadd(A,A);k>>=1n}return R}
+const h32=v=>v.toString(16).padStart(64,'0'),hb=u=>[...u].map(x=>x.toString(16).padStart(2,'0')).join('');
+async function ks(S,n){const o=new Uint8Array(n),xb=new Uint8Array(33);xb.set(h32(S[0]).match(/../g).map(x=>parseInt(x,16)));let p=0,c=0;while(p<n){xb[32]=c++;const d=new Uint8Array(await crypto.subtle.digest('SHA-256',xb));for(let i=0;i<32&&p<n;i++)o[p++]=d[i]}return o}
+async function xor(bytes,S){const k=await ks(S,bytes.length);return bytes.map((b,i)=>b^k[i])}
+async function ecEnc(m,Q,r){const R=ecmul(r,G),S=ecmul(r,Q);return{R,S,ct:await xor(m,S)}}
+async function ecDec(R,ct,k){const S=ecmul(k,R);return{S,pt:await xor(ct,S)}}
+const cmp=R=>(R[1]&1n?'03':'02')+h32(R[0]);
+$('run').onclick=async()=>{try{const m=$('msg').value,s=+$('sh').value,k=BigInt($('k').value),r=BigInt($('r').value),Q=ecmul(k,G),e=await ecEnc(new TextEncoder().encode(m),Q,r),d=await ecDec(e.R,e.ct,k),cc=caesar(m,s);
+$('dout').textContent=`CAESAR (key s=${s})\nplaintext : ${m}\nciphertext: ${cc}\ndecrypted : ${caesar(cc,-s)}\n\nTOY EC SCHEME (k=${k}, r=${r})\npublic key Q = kG : x=${h32(Q[0])}\nR = rG (sent)     : ${cmp(e.R)}\nS = rQ (sender)   : ${h32(e.S[0])}\nS = kR (receiver) : ${h32(d.S[0])}   same: ${e.S[0]===d.S[0]}\nciphertext (hex)  : ${hb(e.ct)}\ndecrypted         : ${new TextDecoder().decode(d.pt)}`}catch(x){$('dout').textContent='Enter positive integers for k and r.'}};
+/* stats lab */
+$('stb').onclick=async()=>{const t=$('corp').value,s=+$('sh').value||7,k=BigInt($('k').value||12345),r=BigInt($('r').value||987),Q=ecmul(k,G),L=t.replace(/[^a-z]/gi,'').toLowerCase(),cc=caesar(L,s),c=cnt(cc),n=L.length;
+const ic=a=>{const N=sum(a);return sum(a.map(v=>v*(v-1)))/(N*(N-1))},e=await ecEnc(new TextEncoder().encode(L),Q,r),H=Array(256).fill(0);e.ct.forEach(b=>H[b]++);
+const ent=-sum(H.filter(v=>v).map(v=>v/n*Math.log2(v/n))),x2=sum(H.map(v=>(v-n/256)**2/(n/256))),bins=Array(32).fill(0);e.ct.forEach(b=>bins[b>>3]++);
+$('sto').textContent=`letters: ${n}\nCaesar plaintext IC = ${ic(cnt(L)).toFixed(4)}, ciphertext IC = ${ic(c).toFixed(4)} (unchanged by shifting)\nEC ciphertext: byte IC = ${ic(H).toFixed(4)} (uniform = ${(1/256).toFixed(4)}), entropy = ${ent.toFixed(3)} bits/byte, chi-square = ${x2.toFixed(1)} (df 255)`;
+bars('c1',c.map(v=>v/n),EN.map(v=>v/100),[...'abcdefghijklmnopqrstuvwxyz'],'Caesar ciphertext letters');bars('c2',bins,bins.map(_=>n/32),bins.map(_=>''),'EC ciphertext bytes (32 bins)')};
+/* Caesar attack */
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+$('at').onclick=()=>{const t=$('ct').value,a=sc(chi,t),b=sc(dot,t),g=sc(ngr,t),best=arg(a,0);let h='<table><tr><th>shift</th><th>chi-square</th><th>dot</th><th>n-gram</th><th>decrypted start</th></tr>';
+a.forEach((v,s)=>h+=`<tr${s===best?' style="background:#fbf3d9"':''}><td>${s}</td><td>${v.toFixed(1)}</td><td>${b[s].toFixed(0)}</td><td>${g[s]}</td><td>${esc(caesar(t,-s).slice(0,45))}</td></tr>`);
+$('ato').innerHTML=`Estimated key (chi-square): <b>${best}</b>. Dot product: ${arg(b,1)}. N-gram: ${arg(g,1)}.<br>${esc(caesar(t,-best))}`+h+'</table>';const c=cnt(t),n=sum(c);bars('c3',c.map(v=>v/n),EN.map(v=>v/100),[...'abcdefghijklmnopqrstuvwxyz'],'ciphertext letter frequency (red) vs English (gold)')};
+/* length test */
+$('tb').onclick=async()=>{const C=$('corp').value.replace(/[^a-z]/gi,'').toLowerCase(),T=+$('nt').value||300,Ls=[3,5,8,12,20,35,60,100,200].filter(l=>l<C.length),S={};Object.keys(METH).forEach(n=>S[n]=[]);
+for(const L of Ls){const w={};Object.keys(METH).forEach(n=>w[n]=0);for(let i=0;i<T;i++){const st=Math.floor(Math.random()*(C.length-L+1)),key=1+Math.floor(Math.random()*25),t=caesar(C.substr(st,L),key);for(const n in METH)if(METH[n](t)===key)w[n]++}
+Object.keys(w).forEach(n=>S[n].push(w[n]/T));$('to').textContent=`length ${L} done`;await new Promise(r=>setTimeout(r))}
+lines('c4',Ls,S);$('to').textContent=`Success rate over ${T} random substrings and keys per length.\n`+Ls.map((l,i)=>`L=${l}: `+Object.keys(S).map(n=>n+' '+(S[n][i]*100).toFixed(0)+'%').join(', ')).join('\n')};
+/* EC attack */
+$('bits').oninput=()=>$('bv').textContent=$('bits').value;
+async function brute(Q,max){let X=G;const t=performance.now();for(let k=1n;k<=max;k++){if(X&&X[0]===Q[0]&&X[1]===Q[1])return{k,ms:performance.now()-t};X=ecadd(X,G);if(k%400n===0n)await new Promise(r=>setTimeout(r))}return null}
+function bsgs(Q,max){const t=performance.now(),m=BigInt(Math.ceil(Math.sqrt(Number(max)))),tab=new Map();let X=null;for(let j=0n;j<m;j++){tab.set(X?X[0]+':'+X[1]:'O',j);X=ecadd(X,G)}
+const st=[X[0],Mo(-X[1])];let Y=Q;for(let i=0n;i<=m+1n;i++){const key=Y?Y[0]+':'+Y[1]:'O';if(tab.has(key))return{k:i*m+tab.get(key),ms:performance.now()-t,m};Y=ecadd(Y,st)}return null}
+$('ab').onclick=async()=>{const b=+$('bits').value,max=2n**BigInt(b),k=BigInt(1+Math.floor(Math.random()*Number(max))),r=BigInt(1+Math.floor(Math.random()*Number(max))),Q=ecmul(k,G),msg=$('msg').value,e=await ecEnc(new TextEncoder().encode(msg),Q,r),o=$('ao');
+o.textContent=`victim key space 1..2^${b} (${max}), secret k hidden\nR = ${cmp(e.R)}\nciphertext = ${hb(e.ct)}\nrunning...`;await new Promise(r=>setTimeout(r,30));
+let txt=`key space 2^${b}; ciphertext = ${hb(e.ct)}\n`,per;let t0=performance.now();let X=G;for(let i=0;i<300;i++)X=ecadd(X,G);per=(performance.now()-t0)/300;
+const bs=bsgs(Q,max);txt+=`BSGS: k = ${bs.k} found in ${bs.ms.toFixed(0)} ms using a table of ${bs.m} points (correct: ${bs.k===k})\n`;
+if(b<=17){o.textContent=txt+'exhaustive search running...';const br=await brute(Q,max);txt+=`Exhaustive: k = ${br.k} found in ${br.ms.toFixed(0)} ms (correct: ${br.k===k})\n`}else txt+='Exhaustive: skipped above 17 bits in this demo\n';
+const d=await ecDec(e.R,e.ct,bs.k);const lg=256*Math.log10(2)+Math.log10(per/1000)-Math.log10(3.156e7),lr=128*Math.log10(2)+Math.log10(per/1000)-Math.log10(3.156e7);
+txt+=`\nrecovered plaintext: ${new TextDecoder().decode(d.pt)}\n\nmeasured cost per point addition here: ${(per*1000).toFixed(0)} microseconds\nextrapolation to a 256-bit key at this speed: exhaustive about 10^${lg.toFixed(0)} years, Pollard rho about 10^${lr.toFixed(0)} years (order of magnitude only; real hardware is faster, the conclusion does not change)`;o.textContent=txt};
+</script></body></html>
