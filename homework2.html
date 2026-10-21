@@ -1,8 +1,8 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homework 2 | Petar Rakočević</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HMWK 1.2 | Petar Rakočević</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
-<header class="top"><span>stats-2026-27 / Homework2</span><span><a href="index.html">Home</a><a href="homework1.html">Homework 1</a></span></header>
+<header class="top"><span>stats-2026-27 / hmwk2</span><span><a href="index.html">Home</a><a href="homework1.html">HMWK 1.1</a><a href="hmwk2.html">HMWK 2</a></span></header>
 <div class="wrap"><aside><b>Chapters</b><a href="#pipe">1 The pipeline</a><a href="#terms">2 Terminology</a><a href="#prims">3 The primitives</a><a href="#vec">4 Worked example</a><a href="#hist">5 Historical context</a><a href="#keccak">6 SHA-2 vs Keccak</a><a href="#why">7 Why many primitives</a><a href="#stat">8 Statistical properties</a><a href="#lab">9 Avalanche lab</a><a href="#exp">10 Wallet experiment</a></aside><main>
-<h1>Homework 2: From wallet seed to Ethereum address</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
+<h1>HMWK 1, part 2: From wallet seed to Ethereum address</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
 <h2 id="pipe">1 The pipeline</h2>
 <div class="pipe"><div><b>Mnemonic</b>12-24 words<i>BIP-39</i></div><div><b>Seed</b>512 bits<i>PBKDF2-HMAC-SHA512</i></div><div><b>Private key</b>256 bits<i>BIP-32 / BIP-44</i></div><div><b>Public key</b>64 bytes (x,y)<i>secp256k1</i></div><div><b>Address</b>20 bytes<i>Keccak-256</i></div><div><b>Checksummed</b>mixed case<i>EIP-55</i></div></div>
 <p>Each arrow is a one-way step except the first: the seed cannot be walked back to a private key by anyone who lacks it, and nothing downstream reveals what is upstream. A wallet stores only the mnemonic; everything else is recomputed on demand.</p>
@@ -22,7 +22,7 @@
 <h3>BIP-44: derivation paths</h3>
 <p>The layout is <code>m / purpose' / coin_type' / account' / change / address_index</code>. Ethereum has coin type 60, so the first account is <code>m/44'/60'/0'/0/0</code>. BIP-44 is only a convention that lets different wallets recover the same accounts from one phrase.</p>
 <h3>secp256k1</h3>
-<p>The curve y² = x³ + 7 over a 256-bit prime field, with generator G. Public key Q = kG (see Homework 1). Ethereum uses it for ECDSA signatures with public-key recovery from the signature, which is why transactions do not carry the sender's public key.</p>
+<p>The curve y² = x³ + 7 over a 256-bit prime field, with generator G. Public key Q = kG (see HMWK 1). Ethereum uses it for ECDSA signatures with public-key recovery from the signature, which is why transactions do not carry the sender's public key.</p>
 <h3>Keccak-256</h3>
 <p>The 64-byte uncompressed public key (x‖y, without the 0x04 prefix) is hashed and the <b>last 20 bytes</b> are the address. Hashing compresses the key and adds a layer of separation between address and public key.</p>
 <h3>EIP-55</h3>
@@ -33,7 +33,7 @@
 path:     m/44'/60'/0'/0/0
 address:  0x9858EfFD232B4033E47d90003D41EC34EcaEda94
 
-private key = 1 (toy case)
+private key = 1 (toy case, never use!)
 address:  0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
 
 EIP-55 sample: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</pre>
@@ -60,10 +60,10 @@ EIP-55 sample: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</pre>
 <h2 id="exp">10 Wallet experiment</h2>
 <p>I ran the pipeline in a BIP-39 derivation tool (Ian Coleman's open-source page) instead of a wallet extension, because it exposes every intermediate value: seed, root key, derivation path, public key, private key and address. I used the public test phrase from chapter 4, Ethereum as the coin, and the BIP-44 path <code>m/44'/60'/0'/0/0</code>. Only one input was changed between the two runs: the optional BIP-39 passphrase.</p>
 <h3>Run A: no passphrase</h3>
-<img src="img/Screenshot 2026-10-15 201040.png"><img src="img/Screenshot 2026-10-15 201122.png">
+<img src="img/01-no-passphrase-seed.png" alt="Mnemonic, empty passphrase, seed and BIP32 root key"><img src="img/02-no-passphrase-address.png" alt="Row 0 with address 0x9858EfFD...Eda94">
 <p>The seed begins <code>5eb00bbd…</code> and the first address is <code>0x9858EfFD232B4033E47d90003D41EC34EcaEda94</code>, identical to the test vector of chapter 4. The public key is shown in compressed form (33 bytes, prefix <code>02</code>/<code>03</code> plus x), while Ethereum hashes the uncompressed x‖y.</p>
 <h3>Run B: passphrase "test"</h3>
-<img src="img/Screenshot 2026-10-15 201313.png"><img src="img/Screenshot 2026-10-15 201339.png">
+<img src="img/03-passphrase-seed.png" alt="Same mnemonic with passphrase test, different seed and root key"><img src="img/04-passphrase-address.png" alt="Row 0 with address 0xB560762f...fF99b">
 <p>The seed becomes <code>0bcdfe83…</code> and the address <code>0xB560762fa35eFD20DF74b2cdEeB49D7A975fF99b</code>. The mnemonic and the path did not change.</p>
 <h3>Measured differences</h3>
 <table><tr><th>Value</th><th>Bits</th><th>Bits that differ</th><th>Share</th></tr>

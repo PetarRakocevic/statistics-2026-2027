@@ -1,8 +1,8 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homework 1 | Petar Rakočević</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HMWK 1.1 | Petar Rakočević</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
-<header class="top"><span>stats-2026-27 / Homework1</span><span><a href="index.html">Home</a><a href="homework2.html">Homework 2</a></span></header>
+<header class="top"><span>stats-2026-27 / hmwk1</span><span><a href="index.html">Home</a><a href="homework2.html">HMWK 1.2</a><a href="hmwk2.html">HMWK 2</a></span></header>
 <div class="wrap"><aside><b>Chapters</b><a href="#theory">1 Theory</a><a href="#code">2 Implementation</a><a href="#demo">3 Demo and animation</a><a href="#real">4 Real secp256k1</a><a href="#stats">5 Statistics</a><a href="#disc">6 Discussion</a></aside><main>
-<h1>Homework 1: Private key to public key</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
+<h1>HMWK 1, part 1: Private key to public key</h1><p class="meta">Petar Rakočević, Cybersecurity MSc, Statistics 2026/27</p>
 <h2 id="theory">1 Theory</h2>
 <p>An elliptic curve over a prime field F<sub>p</sub> is the set of points (x,y) satisfying y² = x³ + ax + b (mod p), plus a point at infinity O that acts as the identity. Ethereum uses secp256k1, where a = 0, b = 7 and p = 2<sup>256</sup> − 2<sup>32</sup> − 977. Our toy curve keeps the same shape, <code>y² = x³ + 7 (mod 17)</code>, with base point G = (1,5). Check: 1³+7 = 8 and 5² = 25 ≡ 8 (mod 17).</p>
 <p>Point addition uses the chord-and-tangent rule: for P≠Q the slope is λ = (y₂−y₁)/(x₂−x₁), for P=Q it is λ = 3x²/2y. Then x₃ = λ²−x₁−x₂ and y₃ = λ(x₁−x₃)−y₁, all mod p, where division means multiplication by a modular inverse. Scalar multiplication is repeated addition: Q = kG. The public key is Q, the private key is k. The reverse problem, finding k from G and Q, is the Elliptic Curve Discrete Logarithm Problem (ECDLP). On 17 elements it is trivial to brute-force; on 256 bits there is no known feasible attack.</p>
@@ -83,7 +83,7 @@ $('st').onclick=()=>{const g=G(),n=order(g),K=[],XS=[],YS=[],hx=Array(p).fill(0)
 for(let k=1;k<n;k++){const q=mul(k,g);K.push(k);XS.push(q[0]);YS.push(q[1]);hx[q[0]]++;hy[q[1]]++;code[k]=q[0]*32+q[1]}
 const chi=h=>h.reduce((a,v)=>a+(v-(n-1)/p)**2/((n-1)/p),0),nb=n.toString(2).length;let tot=0,cnt=0;
 for(let k=1;k<n;k++)for(let i=0;i<nb;i++){const k2=k^(1<<i);if(k2>=1&&k2<n){tot+=pop(code[k]^code[k2]);cnt++}}
-$('sout').textContent=`order n = ${n}, points sampled = ${n-1}\ndistinct x values = ${hx.filter(v=>v).length}/${p}, distinct y values = ${hy.filter(v=>v).length}/${p}\nchi-square(x) vs flat = ${chi(hx).toFixed(2)} (df ~ ${p-1}); chi-square(y) = ${chi(hy).toFixed(2)}\ncorr(k,x) = ${pc(K,XS).toFixed(3)}, corr(k,y) = ${pc(K,YS).toFixed(3)}\navalanche: mean bit change over a 1-bit flip of k = ${(tot/cnt).toFixed(2)} of 10 output bits (ideal hash: 5.00)\n`; <!--Note: tiny group, so values fluctuate; compare several base points.-->
+$('sout').textContent=`order n = ${n}, points sampled = ${n-1}\ndistinct x values = ${hx.filter(v=>v).length}/${p}, distinct y values = ${hy.filter(v=>v).length}/${p}\nchi-square(x) vs flat = ${chi(hx).toFixed(2)} (df ~ ${p-1}); chi-square(y) = ${chi(hy).toFixed(2)}\ncorr(k,x) = ${pc(K,XS).toFixed(3)}, corr(k,y) = ${pc(K,YS).toFixed(3)}\navalanche: mean bit change over a 1-bit flip of k = ${(tot/cnt).toFixed(2)} of 10 output bits (ideal hash: 5.00)\nNote: tiny group, so values fluctuate; compare several base points.`;
 hist('hx',hx,'x coordinate frequency (gold line = uniform expectation)');hist('hy',hy,'y coordinate frequency')};
 run();
 </script></body></html>
